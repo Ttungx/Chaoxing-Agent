@@ -40,7 +40,7 @@
 - **solver 必须开 `use_response_format=true` 且 `max_tokens >= 2000`**: 关闭 JSON mode 或低 max_tokens 会 finish=length 空回。配 `reasoning_effort=low` 启用低深度思考。
 - **点击屏幕坐标前必须 `mapper.refresh()`**: `click_options` / `click_next_button` 已自动 refresh；如果未来增加新的点击入口，必须遵守。
 - **视觉 box 必须落在截图内**: `state_machine._box_in_image` 越界即暂停；不要把这个保护删掉。
-- **不要让 `main.py` 等接口出现提交按钮的运行时开关**（`stop_on_submit` 已废弃）: 那是硬安全边界。
+- **不要让 `main.py` 等接口出现提交按钮的运行时开关**（`stop_on_submit` 已废弃）: 那是硬安全边界。完整机制（不点交卷 / 系统级 `SendInput` / 强制人工接管点 / 数据本机）见 `README.md` 的"安全机制"段。
 
 ## Tauri 2 / Rust 侧踩坑（高频踩过）
 

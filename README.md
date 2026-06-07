@@ -1,6 +1,116 @@
 # ChaoxingAgent
 
-Windows 本地自动化答题工具 — Python 内核（截图 / 视觉 / 点击 / 状态机）+ Tauri 2 桌面壳 + React 前端。
+<p align="center">
+  <a href="https://github.com/Ttungx/Chaoxing-Agent"><img src="https://img.shields.io/github/stars/Ttungx/Chaoxing-Agent?style=flat-square&logo=github" alt="Stars"></a>
+  <a href="https://github.com/Ttungx/Chaoxing-Agent/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Ttungx/Chaoxing-Agent?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/python-3.10+-blue?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/tauri-2-FFC107?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2">
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">
+</p>
+
+学习通本地自动化答题工具 — Python 内核（截图 / 视觉 / 点击 / 状态机）+ Tauri 2 桌面壳 + React 前端。
+
+## 📑 目录
+
+[ChaoxingAgent](#chaoxingagent)
+
+[📑 目录](#-目录)
+
+[它是什么 / 它不是什么](#它是什么--它不是什么)
+
+[实现方案](#实现方案)
+
+[安全机制（为什么没有"作弊"风险）](#安全机制为什么没有作弊风险)
+
+[两种运行方式](#两种运行方式)
+
+[功能](#功能)
+
+[环境要求](#环境要求)
+
+[快速开始](#快速开始)
+
+[配置说明](#配置说明)
+
+[模型服务](#模型服务)
+
+[CLI 命令](#cli-命令)
+
+[架构 / 运维](#架构--运维)
+
+[免责声明](#免责声明)
+
+## 它是什么 / 它不是什么
+
+ChaoxingAgent 是一个**本地化、纯视觉驱动**的答题辅助工具。它不接入任何学习平台 API、不查询题库、不爬取答案、不代理 HTTP 请求到考试服务器。它只做一件事：
+
+> **截取一个外部投屏窗口（手机画面）的局部区域，调用用户自带的 LLM 视觉模型解析题目，再调用用户自带的 LLM 文本模型作答，然后通过 Windows 系统级鼠标事件点击屏幕上的选项和"下一题"按钮。**
+
+整个工具的所有数据流、模型调用、点击操作都发生在**用户自己的 Windows 机器**上。用户自己提供 vision / solver 模型的 API key，工具不存储、不转发、不缓存任何题目内容到外部服务器（除用户配置的模型 API 端点本身外）。
+
+## 实现方案
+
+工具的原理非常简单，可以概括为"看屏幕 → 思考 → 点屏幕"三步循环：
+
+1. **看屏幕**：定时截取一个外部投屏窗口（用户预先框选的手机画面区域）
+2. **思考**：把截图发给用户自带的视觉模型，识别题干和选项；再发给用户自带的文本模型，让它选答案
+3. **点屏幕**：用 Windows 系统级鼠标事件（`SendInput`）在屏幕上点对应的选项和"下一题"按钮，然后检测画面是否已经翻到下一题，没翻就等、翻了就回到第 1 步
+
+整个循环在用户自己的机器上跑，不接触学习平台后端，不查询题库，不改浏览器，不代理 HTTP。模型 API key 由用户提供，工具不存储、不转发题目内容。
+
+主程序有同步（CLI）和异步（带 Tauri 桌面壳）两个版本，逻辑一样。
+
+## 安全机制（为什么没有"作弊"风险）
+
+工具的定位是**辅助视障 / 行动不便用户、或自动化 QA / 题库练习**，不是绕过学习平台规则。设计上从 5 个层面把"作弊能力"关死：
+
+### 1. 不接触平台后端
+
+工具**不**做这些事：
+
+- 不调用学习平台的任何 API
+- 不查询 / 不爬取 / 不缓存题库
+- 不修改平台的请求头、Cookie、Session
+- 不代理浏览器、不注入 JS、不开 DevTools Protocol
+- 不读浏览器 localStorage / cookie / token
+
+它只做一件事：在屏幕上找像素、点像素。**和用手指点屏幕在机制上没有区别**——区别只在于"手指"是 Windows 系统级鼠标事件模拟的硬件点击。
+
+### 2. 不点交卷按钮（硬安全边界）
+
+视觉模型只要识别到"交卷"或"提交"语义，状态机**立即停**。没有任何运行时开关可以关掉这个行为。需要交卷时必须**用户自己点**。
+
+工具只暴露"点选项"和"点下一题"两个点击入口，**没有**"点交卷"或通用点击函数。
+
+### 3. 不模拟浏览器自动化
+
+- 用的是 **Windows 系统级 `SendInput`**，模拟硬件鼠标事件，**不**经过任何浏览器 automation 通道
+- 不开 CDP（Chrome DevTools Protocol）
+- 不用 Selenium / Playwright / Puppeteer 之类的 WebDriver
+- 不修改 `navigator.webdriver` / 不挂自动化标志
+
+学习平台即使检测浏览器自动化 flag 也检测不到这个工具（它根本不走浏览器通道）。反过来，**正因为它不接触平台后端**，平台也没有"自动化"维度可以检测——它就是用户在用自己的鼠标点击。
+
+### 4. 用户完全控制 + 强制人工接管点
+
+工具设计了 6 个暂停触发条件，**任何**一个命中都强制停下来等人接管：
+
+- 模型答得没把握（置信度低）
+- 检测到非题目的弹窗
+- 视觉模型判断不了页面是什么
+- 标定后窗口大小变化过大（防止点击坐标错位）
+- 连续错误次数过多
+- 跑满总步数上限
+
+每个暂停点都需要用户在前端点"继续 / 重试 / 跳过 / 停止"。**没有任何"全自动无人值守"模式。**
+
+### 5. 数据留在本机
+
+- 所有 trace（截图 + 题目 + 答案 + 置信度）只写本地目录（已被 `.gitignore` 排除）
+- API key 放在本地 `.env`（已被 `.gitignore` 排除，模板在 `.env.example`）
+- 真实配置文件（config、model services）都被 `.gitignore` 排除
+- 工具本身不联网（除用户配置的模型 API 端点外），不向后台上报任何使用统计
+- 开源：所有代码可审计
 
 ## 两种运行方式
 
@@ -119,3 +229,5 @@ cd src-tauri && cargo tauri dev
 - 任何未授权的自动化操作
 
 使用本工具产生的一切后果由使用者自行承担。
+
+> 工具本身**不携带**绕过反作弊的能力（详见上文"安全机制"），但"用户拿着普通工具做违规事"不在工具设计能管的范围。**是否合规取决于使用场景**，不由工具决定。
