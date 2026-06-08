@@ -19,10 +19,12 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
+from chaoxing_agent import paths
+
 
 def _get_config_dir() -> Path:
-    """项目根的 config/ 目录。"""
-    return Path(__file__).parent.parent.parent / "config"
+    """Runtime config directory."""
+    return paths.runtime_config_dir()
 
 
 # ---------------------------------------------------------------------------

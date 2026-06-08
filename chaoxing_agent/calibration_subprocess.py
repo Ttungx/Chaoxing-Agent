@@ -8,8 +8,9 @@ import json
 import sys
 from pathlib import Path
 
+from chaoxing_agent import paths
 
-CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+CONFIG_DIR = paths.runtime_config_dir()
 CONFIG_PATH = CONFIG_DIR / "config.json"
 
 

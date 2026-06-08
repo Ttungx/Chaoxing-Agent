@@ -35,6 +35,14 @@ from models.vision_parser import parse as vision_parse
 log = logging.getLogger(__name__)
 
 
+def _box_in_image(box: list[int], width: int, height: int) -> bool:
+    """判断视觉模型返回的 box 是否完全位于截图内。"""
+    if len(box) != 4:
+        return False
+    x1, y1, x2, y2 = box
+    return 0 <= x1 < x2 <= width and 0 <= y1 < y2 <= height
+
+
 class AsyncStateMachine:
     """异步状态机 — 主循环编排，串联全部流程，通过事件与前端通信。"""
 
@@ -237,6 +245,23 @@ class AsyncStateMachine:
         # ── 13. 下一题按钮检查 ──
         if not vision.buttons.next.visible or not vision.buttons.next.box:
             return await self._pause_save(screenshot, vision, None, "未识别到下一题按钮")
+
+        for opt in vision.options:
+            if not _box_in_image(opt.box, screenshot.width, screenshot.height):
+                return await self._pause_save(
+                    screenshot,
+                    vision,
+                    None,
+                    f"选项 {opt.key} 坐标越界: {opt.box}，截图尺寸={screenshot.width}x{screenshot.height}",
+                )
+
+        if not _box_in_image(vision.buttons.next.box, screenshot.width, screenshot.height):
+            return await self._pause_save(
+                screenshot,
+                vision,
+                None,
+                f"下一题按钮坐标越界: {vision.buttons.next.box}，截图尺寸={screenshot.width}x{screenshot.height}",
+            )
 
         # ── 14. 构建选项字典 ──
         opts_dict = {opt.key: opt.text for opt in vision.options}

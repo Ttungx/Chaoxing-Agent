@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/tauri-bridge";
+import { useAppStore } from "../lib/store";
 
 type Config = {
   thresholds?: { vision_text_confidence?: number; vision_layout_confidence?: number; solver_confidence?: number };
@@ -33,20 +34,44 @@ function activeModel(section: Record<string, ModelService> | ModelService | unde
 }
 
 export function Config() {
-  const [cfg, setCfg] = useState<Config | null>(null);
-  const [services, setServices] = useState<ModelServices | null>(null);
+  const { configData, setConfigData, modelServices, setModelServices } = useAppStore();
+  const [cfg, setCfg] = useState<Config | null>((configData as Config | null) ?? null);
+  const [services, setServices] = useState<ModelServices | null>((modelServices as ModelServices | null) ?? null);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
+    if (configData) {
+      setCfg(configData as Config);
+    }
+  }, [configData]);
+
+  useEffect(() => {
+    if (modelServices) {
+      setServices(modelServices as ModelServices);
+    }
+  }, [modelServices]);
+
+  useEffect(() => {
+    if (cfg || services) {
+      return;
+    }
     Promise.all([api.getConfig() as Promise<Config>, api.getModelServices() as Promise<ModelServices>])
       .then(([c, s]) => {
         setCfg(c);
         setServices(s);
+        setConfigData(c as Record<string, unknown>);
+        setModelServices(s as Record<string, unknown>);
+        setError(null);
       })
-      .catch((e) => setToast({ kind: "err", text: String(e) }));
-  }, []);
+      .catch((e) => {
+        const message = String(e);
+        setError(message);
+        setToast({ kind: "err", text: message });
+      });
+  }, [cfg, services, setConfigData, setModelServices]);
 
   function patch<T extends keyof Config>(key: T, value: Config[T]) {
     if (!cfg) return;
@@ -81,6 +106,7 @@ export function Config() {
         timing: cfg.timing,
         runtime: cfg.runtime,
       });
+      setConfigData(cfg as Record<string, unknown>);
       setDirty(false);
       setToast({ kind: "ok", text: `已保存（热更字段：${result.hot_fields.join("、") || "无"}）` });
       setTimeout(() => setToast(null), 3000);
@@ -95,11 +121,25 @@ export function Config() {
     if (!cfg) return;
     api.getConfig().then((c) => {
       setCfg(c);
+      setConfigData(c as Record<string, unknown>);
       setDirty(false);
     });
   }
 
   if (!cfg) {
+    if (error) {
+      return (
+        <div className="p-8">
+          <div className="text-err text-[13px] font-mono mb-3">配置加载失败：{error}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="h-7 px-3 rounded border border-line bg-bg text-fg text-[12px] hover:bg-surface2 active:-translate-y-px"
+          >
+            重试
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="p-8 text-dim text-[13px]">加载配置中</div>
     );

@@ -36,15 +36,9 @@ impl PythonProc {
             });
         });
 
-        // 探查 Python 启动方式
-        let cmd = "uv";
+        let mut command = self.python_command(app)?;
 
-        let mut child = Command::new(cmd)
-            .arg("run")
-            .arg("python")
-            .arg("-m")
-            .arg("chaoxing_agent")
-            .arg("--rpc")
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -101,6 +95,54 @@ impl PythonProc {
         }
         Ok(())
     }
+
+    fn python_command(&self, _app: &AppHandle) -> Result<Command, String> {
+        #[cfg(debug_assertions)]
+        {
+            let mut command = Command::new("uv");
+            command
+                .current_dir(project_root())
+                .arg("run")
+                .arg("python")
+                .arg("-m")
+                .arg("chaoxing_agent")
+                .arg("--rpc");
+            Ok(command)
+        }
+
+        #[cfg(not(debug_assertions))]
+        {
+            use tauri::Manager;
+
+            let resource_dir = _app
+                .path()
+                .resource_dir()
+                .map_err(|e| format!("failed to resolve resource dir: {}", e))?;
+            let sidecar_in_binaries = resource_dir
+                .join("binaries")
+                .join("chaoxing-agent-python.exe");
+            let sidecar_at_root = resource_dir.join("chaoxing-agent-python.exe");
+            let sidecar = if sidecar_in_binaries.exists() {
+                sidecar_in_binaries
+            } else {
+                sidecar_at_root
+            };
+            let mut command = Command::new(sidecar);
+            command
+                .arg("--rpc")
+                .env("CHAOXING_AGENT_DATA_DIR", resource_dir.as_os_str())
+                .current_dir(resource_dir);
+            Ok(command)
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+fn project_root() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
 }
 
 fn unix_secs_now() -> String {

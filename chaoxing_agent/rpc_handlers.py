@@ -21,6 +21,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from chaoxing_agent import paths
 from chaoxing_agent.core import (
     window_selector,
 )
@@ -140,7 +141,7 @@ def _get_calibration(ctx: HandlerContext) -> Handler:
 
 def _latest_capture_b64() -> str | None:
     """扫 trace/ 目录，读最新 session 最新 step 的截图并 base64 编码。"""
-    trace_dir = Path("trace")
+    trace_dir = paths.trace_dir()
     if not trace_dir.is_dir():
         return None
     session_dirs = sorted(
@@ -177,7 +178,7 @@ def _launch_calibration_wizard(ctx: HandlerContext) -> Handler:
         await run_wizard()
 
         # 标定向导写盘后，重新从磁盘加载 config
-        config_path = Path("config/config.json")
+        config_path = paths.runtime_config_dir() / "config.json"
         if config_path.exists():
             fresh = json.loads(config_path.read_text(encoding="utf-8"))
             # 将 _data 替换为磁盘最新内容
@@ -218,12 +219,17 @@ def _stop_run(ctx: HandlerContext) -> Handler:
         sm = ctx.state.get("sm")
         if sm:
             sm.request_stop()
+        if ctx.pause_gate.is_pending():
+            ctx.pause_gate.resolve("quit")
         task = ctx.state.get("sm_task")
-        if task:
+        if task and not task.done():
+            task.cancel()
             try:
-                await asyncio.wait_for(task, timeout=3.0)
-            except asyncio.TimeoutError:
-                task.cancel()
+                await asyncio.wait_for(asyncio.shield(task), timeout=0.2)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+        ctx.state.pop("sm", None)
+        ctx.state.pop("sm_task", None)
         return {"stopped_at_step": sm.step if sm else 0}
     return handler
 
@@ -244,15 +250,17 @@ def _pause_decision(ctx: HandlerContext) -> Handler:
 # trace sessions
 # =========================================================================
 
-_TRACE_DIR = Path("trace")
+def _trace_dir() -> Path:
+    return paths.trace_dir()
 
 
 def _scan_sessions(limit: int = 50) -> list[dict]:
     """扫描 trace/ 目录，返回 session 摘要列表。"""
-    if not _TRACE_DIR.is_dir():
+    trace_dir = _trace_dir()
+    if not trace_dir.is_dir():
         return []
     sessions = []
-    for d in sorted(_TRACE_DIR.iterdir(), reverse=True):
+    for d in sorted(trace_dir.iterdir(), reverse=True):
         if not d.is_dir() or not d.name.startswith("session_"):
             continue
         stop_reason = None
@@ -276,7 +284,7 @@ def _scan_sessions(limit: int = 50) -> list[dict]:
 
 def _read_session_detail(session_id: str, step: int | None = None) -> dict:
     """读取指定 session 的详细数据。"""
-    session_dir = _TRACE_DIR / session_id
+    session_dir = _trace_dir() / session_id
     if not session_dir.is_dir():
         raise FileNotFoundError(f"session 不存在: {session_id}")
 
@@ -334,7 +342,8 @@ def _update_config(ctx: HandlerContext) -> Handler:
 # model services
 # =========================================================================
 
-_MODEL_SERVICES_PATH = Path("config/model_services.json")
+def _model_services_path() -> Path:
+    return paths.runtime_config_dir() / "model_services.json"
 
 
 def _read_model_services() -> dict:
@@ -345,8 +354,9 @@ def _read_model_services() -> dict:
 
 def _write_model_services(data: dict) -> None:
     """写回 model_services.json。"""
-    _MODEL_SERVICES_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(_MODEL_SERVICES_PATH, "w", encoding="utf-8") as f:
+    model_services_path = _model_services_path()
+    model_services_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(model_services_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 

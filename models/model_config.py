@@ -29,6 +29,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from chaoxing_agent import paths
+
 
 @dataclass
 class ModelConfig:
@@ -46,7 +48,7 @@ class ModelConfig:
 
 
 def _get_config_dir() -> Path:
-    return Path(__file__).parent.parent / "config"
+    return paths.runtime_config_dir()
 
 
 def load_model_services() -> dict:

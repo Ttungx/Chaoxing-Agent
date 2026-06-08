@@ -106,3 +106,9 @@ def test_save_stop_writes_reason_file(trace_dir):
     logger = TraceLogger()
     logger.save_stop("用户中断")
     assert (logger.session_dir / "STOP_REASON.txt").read_text(encoding="utf-8") == "用户中断"
+
+
+def test_trace_logger_uses_runtime_trace_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv("CHAOXING_AGENT_DATA_DIR", str(tmp_path))
+    logger = TraceLogger()
+    assert logger.session_dir.parent == tmp_path / "trace"

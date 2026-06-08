@@ -25,6 +25,7 @@ import json
 import sys
 from pathlib import Path
 
+from chaoxing_agent import paths
 from chaoxing_agent.core.config_init import ensure_config_files, init_config_files, init_env_example
 from chaoxing_agent.core.env_settings import apply_overrides
 from chaoxing_agent.core.errors import FatalStopError
@@ -34,7 +35,7 @@ from chaoxing_agent.core.window_selector import select as select_window_fn
 from models.model_config import load_model_services
 
 
-CONFIG_DIR = Path(__file__).parent / "config"
+CONFIG_DIR = paths.runtime_config_dir()
 CONFIG_PATH = CONFIG_DIR / "config.json"
 
 

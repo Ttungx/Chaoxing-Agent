@@ -27,6 +27,8 @@ export type StepHistoryItem = {
 };
 
 type CalibrationData = CalibrationState | null;
+type ConfigData = Record<string, unknown> | null;
+type ModelServicesData = Record<string, unknown> | null;
 
 type AppState = {
   // 连接状态
@@ -72,6 +74,12 @@ type AppState = {
   sessions: SessionSummary[];
   setSessions: (s: SessionSummary[]) => void;
 
+  // 配置缓存
+  configData: ConfigData;
+  setConfigData: (c: ConfigData) => void;
+  modelServices: ModelServicesData;
+  setModelServices: (m: ModelServicesData) => void;
+
   // 状态机
   isRunning: boolean;
   setRunning: (r: boolean) => void;
@@ -114,6 +122,11 @@ export const useAppStore = create<AppState>((set) => ({
 
   sessions: [],
   setSessions: (s) => set({ sessions: s }),
+
+  configData: null,
+  setConfigData: (c) => set({ configData: c }),
+  modelServices: null,
+  setModelServices: (m) => set({ modelServices: m }),
 
   isRunning: false,
   setRunning: (r) => set({ isRunning: r }),

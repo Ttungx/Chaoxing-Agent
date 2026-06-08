@@ -16,8 +16,22 @@ import type {
   CalibrationChangedData,
 } from "./types";
 
+function isAlreadyStartedError(error: unknown): boolean {
+  return String(error).includes("python already started");
+}
+
+export async function ensurePythonStarted(): Promise<void> {
+  try {
+    await invoke("start_python");
+  } catch (error) {
+    if (!isAlreadyStartedError(error)) {
+      throw error;
+    }
+  }
+}
+
 export async function startPython(): Promise<void> {
-  return invoke("start_python");
+  return ensurePythonStarted();
 }
 
 export async function stopPython(): Promise<void> {
@@ -25,6 +39,7 @@ export async function stopPython(): Promise<void> {
 }
 
 async function rpcCall<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  await ensurePythonStarted();
   // 走统一 rpc_call command
   return invoke<T>("rpc_call", { method, params });
 }

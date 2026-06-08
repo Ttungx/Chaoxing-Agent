@@ -28,6 +28,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from chaoxing_agent import paths
 from chaoxing_agent.config_holder import ConfigHolder
 from chaoxing_agent.core.config_init import ensure_config_files
 from chaoxing_agent.pause_gate import PauseGate
@@ -38,7 +39,7 @@ from chaoxing_agent.rpc_server import RpcServer
 def _load_initial_config() -> dict:
     """从 config/config.json 读初始 dict；缺失时初始化。"""
     ensure_config_files()
-    config_path = Path("config/config.json")
+    config_path = paths.runtime_config_dir() / "config.json"
     if not config_path.exists():
         return {}
     try:
@@ -115,7 +116,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run in NDJSON RPC mode over stdin/stdout (default and only mode).",
     )
+    parser.add_argument(
+        "--calibration-subprocess",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args(argv)
+
+    if args.calibration_subprocess:
+        from chaoxing_agent.calibration_subprocess import main as calibration_main
+        return calibration_main()
 
     if not args.rpc:
         parser.print_help()

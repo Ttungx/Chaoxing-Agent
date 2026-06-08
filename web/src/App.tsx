@@ -4,7 +4,7 @@ import { TabRail } from "./components/TabRail";
 import { StatusBar } from "./components/StatusBar";
 import { PauseOverlay } from "./components/PauseOverlay";
 import { useAppStore } from "./lib/store";
-import { events } from "./lib/tauri-bridge";
+import { api, events, startPython } from "./lib/tauri-bridge";
 import { Monitor } from "./tabs/Monitor";
 import { Calibration } from "./tabs/Calibration";
 import { Config } from "./tabs/Config";
@@ -22,9 +22,31 @@ export default function App() {
     setTotalSteps,
     setScreenshot,
     activeTab,
+    setConfigData,
+    setModelServices,
   } = useAppStore();
 
   useEffect(() => {
+    setConnection("连接中");
+    startPython()
+      .then(async () => {
+        setConnection("已连接");
+        try {
+          const [config, modelServices] = await Promise.all([
+            api.getConfig(),
+            api.getModelServices(),
+          ]);
+          setConfigData(config);
+          setModelServices(modelServices);
+        } catch (error) {
+          console.error("initial config preload failed", error);
+        }
+      })
+      .catch((error) => {
+        console.error("startPython on app mount failed", error);
+        setConnection("已崩溃");
+      });
+
     const unlistens: Array<() => void> = [];
 
     events
@@ -36,6 +58,12 @@ export default function App() {
 
     events
       .log((l) => appendLog(l))
+      .then((u) => unlistens.push(u));
+
+    events
+      .configChanged((d) => {
+        setConfigData(d.new_config);
+      })
       .then((u) => unlistens.push(u));
 
     events

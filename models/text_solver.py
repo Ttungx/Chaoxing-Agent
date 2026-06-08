@@ -1,10 +1,10 @@
 """文本模型作答 — 题干+选项 → SolverResult"""
 
 import json
-from pathlib import Path
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError, RateLimitError
 
+from chaoxing_agent import paths
 from chaoxing_agent.core.errors import PauseRequiredError, RecoverableError
 from models.json_extract import extract_all_json_objects, extract_first_json_object
 from models.model_config import ModelConfig, make_openai_client
@@ -13,7 +13,7 @@ from schemas.solver_schema import SolverResult
 
 def _load_prompt() -> str:
     """读取文本模型提示词"""
-    prompt_path = Path(__file__).parent.parent / "prompts" / "solver_prompt.txt"
+    prompt_path = paths.prompt_path("solver_prompt.txt")
     if not prompt_path.exists():
         raise FileNotFoundError(f"文本模型提示词文件不存在: {prompt_path}")
     return prompt_path.read_text(encoding="utf-8")

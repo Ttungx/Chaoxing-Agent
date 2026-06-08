@@ -12,6 +12,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+from chaoxing_agent import paths
+
 
 SUBPROCESS_MODULE = "chaoxing_agent.calibration_subprocess"
 
@@ -22,10 +24,15 @@ async def run_wizard() -> None:
     抛 RuntimeError 如果子进程退出码非 0，stderr 内容会附在异常消息里。
     """
     repo_root = Path(__file__).resolve().parent.parent
-    cmd = [sys.executable, "-m", SUBPROCESS_MODULE]
+    if paths.is_frozen():
+        cmd = [sys.executable, "--calibration-subprocess"]
+        cwd = str(paths.runtime_root())
+    else:
+        cmd = [sys.executable, "-m", SUBPROCESS_MODULE]
+        cwd = str(repo_root)
     proc = await asyncio.create_subprocess_exec(
         *cmd,
-        cwd=str(repo_root),
+        cwd=cwd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )

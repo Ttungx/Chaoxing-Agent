@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppStore, type ConnectionState } from "../lib/store";
-import { api, startPython, stopPython } from "../lib/tauri-bridge";
+import { api, stopPython } from "../lib/tauri-bridge";
 
 const connLabel: Record<ConnectionState, { text: string; cls: string }> = {
   未连接: { text: "未连接", cls: "text-dim" },
@@ -17,19 +17,17 @@ export function TopBar() {
   async function handleStart() {
     setBusy(true);
     try {
-      setConnection("连接中");
-      await startPython();
-      setConnection("已连接");
       try {
         await api.startRun({});
         setRunning(true);
         setTotalSteps(0);
       } catch (e) {
         console.error("startRun failed", e);
+        setConnection("已崩溃");
       }
     } catch (e) {
       setConnection("已崩溃");
-      console.error("startPython failed", e);
+      console.error("startRun failed", e);
     } finally {
       setBusy(false);
     }
@@ -71,7 +69,7 @@ export function TopBar() {
         {!isRunning ? (
           <button
             onClick={handleStart}
-            disabled={busy || connection === "已连接"}
+            disabled={busy || connection === "连接中"}
             className="inline-flex items-center h-[30px] px-3 rounded-md border border-accent bg-accent text-accent-fg text-[12.5px] font-medium transition-all duration-150 hover:bg-accent-hover hover:border-accent-hover disabled:opacity-50 active:translate-y-px"
           >
             启动

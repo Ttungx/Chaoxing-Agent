@@ -4,12 +4,14 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from chaoxing_agent import paths
+
 
 class TraceLogger:
     """管理 trace/ 目录，保存每步截图和 JSON"""
 
-    def __init__(self, base_dir: str = "trace"):
-        self.base_dir = Path(base_dir)
+    def __init__(self, base_dir: str | Path | None = None):
+        self.base_dir = Path(base_dir) if base_dir is not None else paths.trace_dir()
         session_name = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.session_dir = self.base_dir / session_name
         self.session_dir.mkdir(parents=True, exist_ok=True)

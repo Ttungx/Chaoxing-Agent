@@ -9,9 +9,11 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from chaoxing_agent import paths
+
 log = logging.getLogger(__name__)
 
-CONFIG_PATH = Path("config/config.json")
+CONFIG_PATH = paths.runtime_config_dir() / "config.json"
 
 # 热更白名单（运行时改后下次 step 生效）
 HOT_FIELDS = {"timing", "thresholds", "runtime", "selected"}

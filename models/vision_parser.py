@@ -2,11 +2,11 @@
 
 import base64
 import io
-from pathlib import Path
 
 from PIL import Image
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError, RateLimitError
 
+from chaoxing_agent import paths
 from chaoxing_agent.core.errors import PauseRequiredError, RecoverableError
 from models.json_extract import extract_all_json_objects, extract_first_json_object
 from models.model_config import ModelConfig, make_openai_client
@@ -15,7 +15,7 @@ from schemas.vision_schema import VisionResult
 
 def _load_prompt() -> str:
     """读取视觉模型提示词"""
-    prompt_path = Path(__file__).parent.parent / "prompts" / "vision_prompt.txt"
+    prompt_path = paths.prompt_path("vision_prompt.txt")
     if not prompt_path.exists():
         raise FileNotFoundError(f"视觉模型提示词文件不存在: {prompt_path}")
     return prompt_path.read_text(encoding="utf-8")

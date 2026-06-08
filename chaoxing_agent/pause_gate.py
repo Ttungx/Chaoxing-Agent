@@ -7,28 +7,43 @@
     # RPC handler 侧（前端发 pause_decision 时调用）：
     gate.resolve(decision)
 
-内部使用 asyncio.Queue 确保串行化：每个 resolve() 只唤醒一个 waiter。
+内部维护 waiter 队列：每个 resolve() 只唤醒一个 waiter，且不会把“过期决策”
+残留到下一次暂停。
 """
 import asyncio
-from typing import Optional
+from collections import deque
+from typing import Deque
 
 
 class PauseGate:
     def __init__(self):
-        self._queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
-        self._pending = False
+        self._waiters: Deque[asyncio.Future[str]] = deque()
+        self._buffered_decisions: Deque[str] = deque()
 
     async def wait(self, step: int, reason: str) -> str:
         """状态机调用：阻塞等待前端发决策。"""
-        self._pending = True
-        decision = await self._queue.get()
-        self._pending = False
-        return decision
+        if self._buffered_decisions:
+            return self._buffered_decisions.popleft()
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[str] = loop.create_future()
+        self._waiters.append(future)
+        try:
+            return await future
+        finally:
+            try:
+                self._waiters.remove(future)
+            except ValueError:
+                pass
 
     def resolve(self, decision: str) -> None:
         """RPC handler 调用：解除阻塞。"""
-        self._queue.put_nowait(decision)
+        while self._waiters:
+            future = self._waiters.popleft()
+            if not future.done():
+                future.set_result(decision)
+                return
+        self._buffered_decisions.append(decision)
 
     def is_pending(self) -> bool:
         """前端用：当前是否在等决策。"""
-        return self._pending
+        return any(not future.done() for future in self._waiters)

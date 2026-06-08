@@ -6,11 +6,14 @@ tests/images
 .venv/
 .vscode/
 .idea/
+.cargo-home/
+.uv-cache/
 
 # ---- 运行时输出 ----
 trace/
 docs/superpowers/
 .ui-preview/
+.tmp/
 
 # ---- Python 编译产物 ----
 __pycache__/
@@ -21,6 +24,9 @@ __pycache__/
 .ruff_cache/
 
 # ---- 真实环境配置（含密钥 / 本地覆盖） ----
+.env
+model_services.json
+AGENTS.md
 config/.env
 config/.env.local
 config/config.json
@@ -36,6 +42,8 @@ web/dist/
 src-tauri/target/
 src-tauri/gen/
 src-tauri/Cargo.lock
+src-tauri/binaries/
+.dist/
 # 临时占位图标（仅 766 字节的 .ico placeholder，等正式设计稿替换）
 src-tauri/icons/icon.ico
 

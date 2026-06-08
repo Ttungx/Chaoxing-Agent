@@ -85,3 +85,32 @@ def test_force_init_creates_env_when_missing(tmp_path, monkeypatch):
 
     assert (cfg_dir / ".env").exists()
     assert (cfg_dir / ".env").read_text(encoding="utf-8") == "VISION_API_KEY=\n"
+
+
+def test_runtime_config_created_from_resource_templates(tmp_path, monkeypatch):
+    resource = tmp_path / "resources"
+    runtime = tmp_path / "runtime"
+    cfg_resource = resource / "config"
+    cfg_resource.mkdir(parents=True)
+    (cfg_resource / "config.json.example").write_text(
+        '{"runtime": {"max_steps": 1}}',
+        encoding="utf-8",
+    )
+    (cfg_resource / "model_services.json.example").write_text(
+        '{"vision": {}, "solver": {}}',
+        encoding="utf-8",
+    )
+    (cfg_resource / ".env.example").write_text(
+        "VISION_API_KEY=\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CHAOXING_AGENT_RESOURCE_DIR", str(resource))
+    monkeypatch.setenv("CHAOXING_AGENT_DATA_DIR", str(runtime))
+
+    from chaoxing_agent.core.config_init import ensure_config_files
+
+    ensure_config_files()
+
+    assert (runtime / "config" / "config.json").exists()
+    assert (runtime / "config" / "model_services.json").exists()
+    assert (runtime / "config" / ".env").exists()
