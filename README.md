@@ -10,6 +10,8 @@
 
 学习通本地自动化答题工具 — Python 内核（截图 / 视觉 / 点击 / 状态机）+ Tauri 2 桌面壳 + React 前端。
 
+本项目非常适用于文科类水课考试，尤其考试只限定学习通手机 App 的场景；当然如果配置的模型比较优秀，也适用于工科、理科类考试。具体的作答效果取决于所配置模型的能力上限。
+
 ## 📑 目录
 
 [ChaoxingAgent](#chaoxingagent)
@@ -47,6 +49,8 @@ ChaoxingAgent 是一个**本地化、纯视觉驱动**的答题辅助工具。�
 > **截取一个外部投屏窗口（手机画面）的局部区域，调用用户自带的 LLM 视觉模型解析题目，再调用用户自带的 LLM 文本模型作答，然后通过 Windows 系统级鼠标事件点击屏幕上的选项和"下一题"按钮。**
 
 整个工具的所有数据流、模型调用、点击操作都发生在**用户自己的 Windows 机器**上。用户自己提供 vision / solver 模型的 API key，工具不存储、不转发、不缓存任何题目内容到外部服务器（除用户配置的模型 API 端点本身外）。
+
+其核心运行原理是借助手机投屏软件（如 vivo 手机投屏、scrcpy 等）将手机画面投射到电脑屏幕，再通过纯视觉方案截取并识别屏幕内容、模拟鼠标点击来操控手机，整个过程不触及学习通 App 的任何内部接口，从而最大程度规避被检测的风险。
 
 ## 实现方案
 
@@ -163,19 +167,31 @@ cd ChaoxingAgent
 uv venv
 uv pip install -r requirements.txt
 
-# 3. 准备本地配置（首次运行会自动从 *.example 复制生成）
+# 3. 初始化本地配置（首次运行会自动从 *.example 复制生成）
 uv run python main.py --init-config   # 强制从 example 覆盖 config.json / model_services.json
-uv run python main.py --init-env      # 重新生成 config/.env.example
+uv run python main.py --init-env      # 重新生成 config/.env
 
-# 4. 编辑本地配置（真实文件被 .gitignore 排除，不入库）
-#    config/config.json         运行时参数（target / viewport / timing / ...）
-#    config/model_services.json 视觉 + 文本模型服务商配置
-#    config/.env                模型 API key（不入库）
-
-# 5a. 仅跑 Python（不开 UI）
+# 4. 配置手机投屏目标（config/config.json）
+#    打开 config/config.json，在 "target" 部分填入手机投屏软件的进程名或 PID：
+#      - process_name: 投屏软件的进程名（如 "vivoScreen"、"scrcpy" 等，可在 Windows 任务管理器中查看）
+#      - pid: 投屏软件的进程 PID（更精确，可选；不填则自动按进程名查找）
+#    二者至少填一个，程序启动时会自动绑定该进程的顶层窗口。
+#    常见的手机投屏/远程操控软件包括：vivo 手机投屏、scrcpy、Vysor、AirDroid 等。
+#
+# 5. 配置模型服务（config/model_services.json + config/.env）
+#    a) 编辑 config/model_services.json，为 vision（视觉模型）和 solver（文本模型）分别设置：
+#       - base_url: 模型 API 地址（任何 OpenAI 兼容端点均可）
+#       - model_id: 模型名称
+#       - api_key_env: API key 对应的环境变量名（默认 VISION_API_KEY / SOLVER_API_KEY）
+#    b) 编辑 config/.env，填入对应的 API key：
+#       VISION_API_KEY=你的视觉模型API密钥
+#       SOLVER_API_KEY=你的文本模型API密钥
+#    注意：config/.env 中的变量名必须与 model_services.json 中 api_key_env 字段的值保持一致。
+#
+# 6a. 仅跑 Python（不开 UI）
 uv run python main.py
 
-# 5b. 跑 Tauri 桌面壳（需要先有 Rust + Node）
+# 6b. 跑 Tauri 桌面壳（需要先有 Rust + Node）
 cd src-tauri && cargo tauri dev
 ```
 
@@ -200,6 +216,14 @@ cd src-tauri && cargo tauri dev
 ```
 
 完整字段说明见 `config/config.json.example.md` 和 `config/model_services.json.example`。
+
+> 免费小米MIMO模型（6月29日前有效）：
+>
+> key：tp-ckv5kg8nm399yc3gc7oecvu0uu34hqwyetvxcr6pzkycjbzq
+>
+> Base_url：
+> https://token-plan-cn.xiaomimimo.com/anthropic
+> https://token-plan-cn.xiaomimimo.com/v1
 
 ## CLI 命令
 
@@ -231,3 +255,11 @@ cd src-tauri && cargo tauri dev
 使用本工具产生的一切后果由使用者自行承担。
 
 > 工具本身**不携带**绕过反作弊的能力（详见上文"安全机制"），但"用户拿着普通工具做违规事"不在工具设计能管的范围。**是否合规取决于使用场景**，不由工具决定。
+
+## TODO
+
+- [x] CLI功能实现
+
+- [ ] 发布 Release
+- [ ] 项目趋于稳定后整理好代码库和文档
+
